@@ -13,4 +13,8 @@ const posts = defineCollection({
     draft: z.boolean().default(false),
   }),
 });
-export const collections = { posts };
+const about = defineCollection({
+  loader: glob({ base: './about', pattern: 'index.md', generateId: ({ entry }) => entry.replace(/\.md$/, '') }),
+  schema: z.object({ title: z.string().default('关于'), description: z.string().default('关于 Rainy Tom。') }),
+});
+export const collections = { posts, about };

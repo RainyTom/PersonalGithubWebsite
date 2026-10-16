@@ -1,0 +1,10 @@
+---
+import { getEntry, render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+const profile = await getEntry('about', 'index');
+if (!profile) throw new Error('请创建 about/index.md');
+const { Content } = await render(profile);
+---
+<Base title={profile.data.title} description={profile.data.description}>
+  <article class="article-page about-page"><div class="eyebrow">ABOUT / RAINY TOM</div><div class="prose"><Content /></div></article>
+</Base>

@@ -1,6 +1,6 @@
-# 日常之间 · 自动化博客
+# Rainy Tom · 自动化博客
 
-Astro 7 + 纯 CSS + Markdown + GitHub Pages + GitHub Actions。移动优先，最大内容宽度 920px，浅色/深色主题，中文排版，无外部字体或 UI 框架。正文静态输出，浏览器只运行主题切换脚本。
+Astro 7 + 纯 CSS + Markdown + GitHub Pages + GitHub Actions。黑白灰界面、无文章封面、首页左侧完整分类、渐变明暗主题。最大布局宽度 1120px，文章宽度 780px；支持中文全文搜索、仓库源码索引、日期排序与范围筛选。正文静态输出，搜索按需在 Web Worker 中运行。
 
 选择 Astro 是因为博客主要是内容阅读：可以在构建时生成完整 HTML，直接使用 Markdown 内容集合、Shiki 高亮、RSS 和 sitemap，无需数据库或常驻服务。纯 CSS 足够覆盖本项目的布局与主题需求。
 
@@ -18,14 +18,25 @@ Astro 7 + 纯 CSS + Markdown + GitHub Pages + GitHub Actions。移动优先，�
 ├── package-lock.json
 ├── tsconfig.json
 ├── astro.config.mjs                   # 自动推导 site / base
+├── about/index.md                     # 直接编辑个人简介，输出 /about/
 ├── content-library/topics.js          # 本地主题与每日练习
-├── public/favicon.svg
+├── public/
+│   ├── favicon.svg
+│   └── assets/
+│       ├── README.md
+│       └── images/                    # 仓库内静态图片
 ├── scripts/
 │   ├── export-source.js
 │   ├── frontmatter.js
 │   ├── generate-content.js
+│   ├── build-search.js                # 全仓库公开文本索引
+│   ├── search-shared.js               # 中文/代码分词及排序过滤
+│   ├── site-paths.js                  # 静态图片 base 路径
+│   ├── code-themes.js                 # 灰阶 Shiki 双主题
 │   └── safe-markdown.js
-├── tests/generate-content.test.js
+├── tests/
+│   ├── generate-content.test.js
+│   └── search.test.js
 └── src/
     ├── config.ts                     # 名称、描述、作者、GitHub 链接
     ├── content.config.ts             # frontmatter 校验
@@ -40,12 +51,21 @@ Astro 7 + 纯 CSS + Markdown + GitHub Pages + GitHub Actions。移动优先，�
     │   ├── Listing.astro
     │   └── PostCard.astro
     ├── layouts/Base.astro
-    ├── lib/posts.ts
+    ├── lib/
+    │   ├── posts.ts
+    │   └── search-index.ts
+    ├── scripts/
+    │   ├── library.ts
+    │   ├── search-worker.ts
+    │   ├── search-types.ts
+    │   └── site-ui.ts
     ├── styles/global.css
     └── pages/
         ├── index.astro
         ├── 404.astro
-        ├── about.astro
+        ├── about/index.astro
+        ├── search-index.json.ts
+        ├── search-index.json.gz.ts
         ├── robots.txt.ts
         ├── rss.xml.ts
         ├── page/[page].astro
@@ -82,7 +102,44 @@ GITHUB_REPOSITORY=RainyTom/PersonalGithubWebsite npm run preview
 # http://localhost:4321/PersonalGithubWebsite/
 ```
 
-`src/config.ts` 和 `src/pages/about.astro` 是个人信息入口。初始的 6 篇文章是本项目的示例内容，`source: manual` 表示静态维护的文章，与自动发布来源区分；请按个人情况编辑，并勿将示例当作个人经历。首页每页 5 篇，第二页开始使用 `/page/2/`。内容不足 6 篇时不会显示分页。
+站名、描述、作者和 GitHub 链接在 `src/config.ts` 中配置。**个人简介直接编辑根目录 `about/index.md`**，支持标题、列表、代码和图片，无需修改 Astro 页面。初始的 6 篇文章是本项目的示例内容，`source: manual` 表示静态维护的文章，请按个人情况编辑。首页每页 5 篇，默认最新在前，无 JavaScript 时仍保留静态分页与文章阅读。
+
+## 分类、时间查询与全仓库搜索
+
+首页左侧显示所有文章标签作为分类，不截断前几项；移动端转为首页顶部的紧凑分类列表。分类、日期范围与排序可以组合使用。开始和结束日期均包含当天，选择“最早在前”可升序浏览。文章时间使用 Frontmatter `date`，仓库文件使用最后 Git 提交日期；本地未提交的新文件没有已知提交日期，不会虚构时间。
+
+全文搜索覆盖：公开文章的完整正文、`about/index.md`，以及 Git 当前版本中可索引的公开源码和文档（README、JS/TS、Astro、CSS、YAML、JSON、SVG、TXT 等）。站内内容链接到页面，源码结果链接到 GitHub 对应文件。范围可选“全仓库”“文章与页面”“仓库文件”，不搜索 Git 历史版本。输入关键词时默认按相关度排序，也可以按时间排序。
+
+索引明确排除 `.env*`、草稿文章源码、构建产物、依赖目录、`artifacts/`、二进制资源和依赖锁文件；单个超过 1MB 的文本文件不进入索引。公开源码被加入索引会随网站发布，**不要将密钥放入任何会提交的文件**。GitHub Actions Secret 不会进入索引。
+
+构建时使用 MiniSearch 生成倒排索引和 gzip 版本；首屏不下载索引，纯分类/时间筛选也不下载。首次关键词查询才按需启动 Worker、加载压缩索引，并在 Worker 中完成解析、分词、全文检索及筛选，避免阻塞页面。索引加载后在当前页面会话复用。中文支持单字和相邻双字，代码支持大小写归一和驼峰拆词；多关键词使用 AND 匹配，并提供英文前缀匹配。
+
+按 `Ctrl+K` / `⌘+K` 聚焦搜索。关键词、分类、时间范围、范围和页码保存在 URL 中，链接可收藏或分享。无关键词时默认展示文章；选择“仓库文件”范围可以直接浏览源码索引。文章新增和代码更新后，下一次构建会自动重新索引；线上索引带构建提交版本参数，减少部署后旧缓存的影响。
+
+## 代码与明暗主题
+
+Markdown 代码围栏标注语言即可获得 Shiki 灰阶语法高亮：
+
+````markdown
+```typescript
+const greeting: string = 'Hello, Rainy Tom';
+console.log(greeting);
+```
+````
+
+代码块自动显示语言标题、行号和复制按钮；行号是 CSS 计数，不会混入复制内容。代码区域支持水平滚动，长代码不撑开手机页面。复制功能需要 HTTPS 或 localhost；禁止剪贴板权限时会给出手动选择提示。
+
+主题首次跟随系统，手动选择会保存。支持 View Transitions 的浏览器执行约 500ms 的整体渐隐渐显，其他浏览器使用颜色渐变；系统设置“减少动态效果”时跳过动画。初始化主题发生在首屏绘制前，以减少颜色闪烁。
+
+## 仓库内静态资源
+
+把图片直接放在 `public/assets/images/`，可自行建立文章子目录：
+
+```markdown
+![图片说明](/assets/images/example.svg)
+```
+
+不要写 `public/` 前缀。构建会自动将 `/assets/...` 图片 URL 加上 GitHub Pages 项目子路径，例如 `/PersonalGithubWebsite/assets/images/example.svg`；本地根路径同样可用。图片带懒加载，不会自动作为文章封面。可直接使用 PNG/JPEG/WebP/AVIF/GIF/SVG。`public/assets/README.md` 中也保存了使用说明。
 
 ## 从零创建仓库并启用 Pages
 
@@ -226,7 +283,7 @@ draft: false
 正文支持普通 Markdown、代码高亮、列表、表格和引用。
 ```
 
-文件名建议用英文短横线，避免特殊 URL 字符。标签支持中文，会自动生成独立页面。日期始终加引号，使用真实的 `YYYY-MM-DD`；未来日期目前不会自动隐藏，未准备好的内容请设置 `draft: true`。原始 HTML 会按文本显示，危险链接协议会移除；通过 Markdown 添加的图片会带 `loading="lazy"` / `decoding="async"`。站点没有默认文章大图，以减少加载开销。相对链接与图片请考虑 GitHub Pages 子路径，推荐使用完整 HTTPS 资源地址。
+文件名建议用英文短横线，避免特殊 URL 字符。标签支持中文，会生成独立页面并完整显示在首页左侧。日期加引号，使用真实 `YYYY-MM-DD`；未来日期不会自动隐藏，未准备好的内容请设置 `draft: true`。原始 HTML 按文本显示，危险链接协议会移除；正文图片带懒加载。文章列表没有封面，正文图片使用上文的 `/assets/...` 格式。
 
 文章页提供更早/更新文章导航，全部页面包含 title、description、canonical、Open Graph。RSS 提供摘要而非未经清理的正文 HTML。主题初次跟随系统，手动切换会保存在浏览器；禁用存储时仍可切换当前页面主题。
 
@@ -239,6 +296,8 @@ draft: false
 - 跨日：`npm test` 验证北京时间 23:59:59 / 00:00:00 边界与下一天生成。实际连续两天查看 Actions 和 `src/content/posts/`；配置成功不等于已经观测了两天。
 - 每小时：`gh run list --workflow publish.yml --event schedule` 查看实际调度记录；正常日应有多个每小时检查。无变化不产生 Git 提交。
 - 视觉：320px、390px、768px、1440px 视口无整页横向滚动；键盘可访问导航、分页和主题开关；深浅色有可读对比；系统减少动态效果时不播放过渡。
+- 搜索：首屏不请求索引；关键词可命中文章正文与 `scripts/generate-content.js` 的 `dateInTimezone`，可组合日期/分类筛选；无结果时显示空状态。浏览器无 Worker 或索引加载失败时，应提示错误，静态文章仍可阅读。
+- 代码与资源：代码能复制且不含行号，长行只在代码框内滚动；`/assets/images/example.svg`（含项目 base）可访问，`about/index.md` 内容出现在 `/about/`。
 - API：配置自己的 Secret 和模型后，在尚无当天文章的一天确认 `source: openai` 的新文件出现。自动测试不代表真实账号和模型已经通过验证。
 
 ## 权限、安全、额度与故障排查

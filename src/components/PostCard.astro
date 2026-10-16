@@ -1,13 +1,10 @@
 ---
-import { displayDate, postHref, tagHref, type Post } from '../lib/posts';
+import { displayDate, postHref, type Post } from '../lib/posts';
 interface Props { post: Post; }
 const { post } = Astro.props;
-const category = post.data.tags[0];
-const minutes = Math.max(1, Math.ceil((post.body?.length || 0) / 450));
 ---
-<article class="post-card">
-  <div class="post-meta"><time datetime={post.data.date}>{displayDate(post.data.date)}</time><span class="meta-dot">/</span><a href={tagHref(category)}>{category}</a><span class="reading-time">{minutes} 分钟阅读</span></div>
+<article class="post-card" data-kind="post">
+  <div class="post-meta"><time datetime={post.data.date}>{displayDate(post.data.date)}</time><span aria-hidden="true">/</span><span>{post.data.tags[0]}</span></div>
   <h2><a href={postHref(post)}>{post.data.title}<span aria-hidden="true" class="post-arrow">↗</span></a></h2>
   <p>{post.data.summary}</p>
-  <div class="post-bottom"><div class="tags">{post.data.tags.slice(1).map(tag => <a href={tagHref(tag)}># {tag}</a>)}</div><a class="read-link" href={postHref(post)} aria-label={`阅读全文：${post.data.title}`}>阅读全文 <span aria-hidden="true">→</span></a></div>
 </article>

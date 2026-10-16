@@ -1,26 +1,36 @@
 ---
 import Base from '../layouts/Base.astro';
 import PostCard from './PostCard.astro';
-import { href, tagHref, tagCounts, type Post } from '../lib/posts';
+import { href, tagHref, tagCounts, postHref, type Post } from '../lib/posts';
 interface Props { posts: Post[]; all: Post[]; current: number; total: number; }
 const { posts, all, current, total } = Astro.props;
 const categories = tagCounts(all);
 const pageHref = (page: number) => page === 1 ? href() : href(`page/${page}/`);
+const metadata = all.map(post => ({ id: `post:${post.id}`, title: post.data.title, summary: post.data.summary, date: post.data.date, tags: post.data.tags, kind: 'post', url: postHref(post), path: '' }));
+const indexVersion = process.env.GITHUB_SHA || 'local';
 ---
 <Base title={current > 1 ? `文章 · 第 ${current} 页` : undefined}>
-  <section class="intro">
-    <div class="eyebrow"><span class="status-dot"></span> A SMALL SPACE FOR BIG CURIOSITIES</div>
-    <h1>在日常之间，<br />留一点<span class="accent">思考的空白。</span></h1>
-    <p>写一点代码，读几页书，观察生活。<br class="desktop-break" />这里收藏技术里的思考，和日子里不经意的发现。</p>
-    <a class="intro-link" href={href('about/')}>认识一下这个小站 <span aria-hidden="true">↗</span></a>
-    <span class="intro-decoration" aria-hidden="true">*</span>
-  </section>
-  <section aria-labelledby="articles-heading">
-    <div class="section-heading"><h2 id="articles-heading">最近的记录 <span>{String(all.length).padStart(2, '0')}</span></h2><a href={href('rss.xml')}>订阅 RSS ↗</a></div>
-    <div class="filter-bar" aria-label="按标签浏览"><a class="filter active" href={href()} aria-current="page">全部文章</a>{categories.slice(0, 5).map(([tag, count]) => <a class="filter" href={tagHref(tag)}>{tag}<small>{count}</small></a>)}</div>
-    <div class="post-list">{posts.map(post => <PostCard post={post} />)}</div>
-    {total > 1 && <nav class="pagination" aria-label="文章分页"><span>第 {current} / {total} 页</span><div>{current > 1 && <a href={pageHref(current - 1)}>← 上一页</a>}{current < total && <a href={pageHref(current + 1)}>下一页 →</a>}</div></nav>}
-    {!posts.length && <p class="empty">第一篇记录正在路上。</p>}
-  </section>
-  <aside class="subscribe"><span class="subscribe-icon" aria-hidden="true">↗</span><div><h2>让好内容，慢一点抵达。</h2><p>通过 RSS 订阅，在你喜欢的阅读器里相遇。</p></div><a href={href('rss.xml')}>订阅更新 <span aria-hidden="true">→</span></a></aside>
+  <div id="library" class="library-layout" data-current={current} data-base={href()} data-index={`${href('search-index.json')}?v=${indexVersion}`}>
+    <aside class="category-sidebar" aria-label="文章分类"><div class="sidebar-inner"><p class="sidebar-label">COLLECTIONS</p><h2>分类<span>{categories.length}</span></h2><nav id="category-nav" aria-label="按分类筛选"><a class="category-link selected" href={href()} data-tag="" aria-current="true"><span>全部文章</span><small>{all.length}</small></a>{categories.map(([tag, count]) => <a class="category-link" href={tagHref(tag)} data-tag={tag}><span>{tag}</span><small>{count}</small></a>)}</nav><div class="sidebar-note"><span class="small-rule"></span><p>写代码，也写生活。<br />记录值得留下的片刻。</p><a href={href('rss.xml')}>RSS 订阅 ↗</a></div></div></aside>
+    <div class="library-main">
+      <section class="intro"><div class="eyebrow"><span class="status-dot"></span> A PERSONAL NOTEBOOK</div><h1>代码、思考，与日常。</h1><p>一些值得写下来的问题，和慢慢找到的答案。</p></section>
+      <section aria-labelledby="articles-heading">
+        <div class="section-heading"><h2 id="articles-heading">全部文章 <span id="total-count">{String(all.length).padStart(2, '0')}</span></h2><a href={href('about/')}>关于我 ↗</a></div>
+        <form id="library-controls" role="search" aria-label="文章与仓库全文搜索">
+          <div class="search-box"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.5"/></svg><label for="content-search" class="sr-only">搜索文章、正文或仓库代码</label><input type="search" id="content-search" name="q" placeholder="搜索文章、正文或仓库代码…" autocomplete="off" maxlength="160" /><kbd>Ctrl K</kbd></div>
+          <div class="filter-row"><label>排序<select id="sort-order" name="order"><option value="newest">最新在前</option><option value="oldest">最早在前</option><option value="relevance">相关度</option></select></label><label>范围<select id="search-scope" name="scope"><option value="all">全仓库</option><option value="pages">文章与页面</option><option value="repository">仓库文件</option></select></label><div class="date-range"><label for="date-from" class="sr-only">开始日期</label><input id="date-from" name="from" type="date" aria-label="开始日期" /><span>—</span><label for="date-to" class="sr-only">结束日期</label><input id="date-to" name="to" type="date" aria-label="结束日期" /></div><button id="reset-filters" type="button">重置</button></div>
+        </form>
+        <div class="results-caption"><p id="result-status" role="status" aria-live="polite">按时间记录，共 {all.length} 篇文章。</p><button id="clear-category" type="button" hidden>清除分类 ×</button></div>
+        <div class="post-list" id="article-results">{posts.map(post => <PostCard post={post} />)}</div>
+        <nav class="pagination" id="results-pagination" aria-label="文章分页"><span>第 {current} / {Math.max(1, total)} 页</span><div>{current > 1 && <a href={pageHref(current - 1)}>← 上一页</a>}{current < total && <a href={pageHref(current + 1)}>下一页 →</a>}</div></nav>
+        {!posts.length && <p class="empty">第一篇记录正在路上。</p>}
+        <noscript><p class="empty">全文搜索与筛选需要 JavaScript。文章和分页仍可直接阅读。</p></noscript>
+      </section>
+      <aside class="subscribe"><span aria-hidden="true" class="subscribe-icon">↗</span><div><h2>在你喜欢的阅读器里相遇。</h2><p>用 RSS 订阅更新，给阅读留一点自己的节奏。</p></div><a href={href('rss.xml')}>订阅 ↗</a></aside>
+    </div>
+  </div>
+  <script id="post-metadata" type="application/json" set:html={JSON.stringify(metadata).replaceAll('<', '\\u003c')} />
+  <script>
+    import '../scripts/library';
+  </script>
 </Base>

@@ -1,4 +1,5 @@
 import { visit } from 'unist-util-visit';
+import { assetUrl, siteBase } from './site-paths.js';
 
 // Markdown 正文不执行原始 HTML；保留代码块和普通 Markdown。
 export default function safeMarkdown() {
@@ -10,6 +11,7 @@ export default function safeMarkdown() {
         if (/^[a-z][a-z\d+.-]*:/i.test(url) && !/^(https?:|mailto:)/i.test(url)) node.url = '#';
       }
       if (node.type === 'image') {
+        node.url = assetUrl(node.url || '', siteBase());
         node.data = { ...node.data, hProperties: { loading: 'lazy', decoding: 'async' } };
       }
     });

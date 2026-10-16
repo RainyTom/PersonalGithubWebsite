@@ -4,7 +4,7 @@ import { site } from '../config';
 import { href } from '../lib/posts';
 interface Props { title?: string; description?: string; type?: 'website' | 'article'; date?: string; }
 const { title, description = site.description, type = 'website', date } = Astro.props;
-const pageTitle = title ? `${title} · ${site.title}` : `${site.title} · 技术、生活与随笔`;
+const pageTitle = title ? `${title} · ${site.title}` : `${site.title} · 代码、技术与日常`;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const path = Astro.url.pathname;
 ---
@@ -30,39 +30,26 @@ const path = Astro.url.pathname;
     <script is:inline>
       try {
         const saved = localStorage.getItem('theme');
-        document.documentElement.dataset.theme = saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      } catch { /* 无存储权限时跟随 CSS 系统主题。 */ }
+        document.documentElement.dataset.theme = ['light', 'dark'].includes(saved) ? saved : (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      } catch {}
     </script>
   </head>
   <body>
     <a class="skip" href="#main">跳到正文</a>
     <header class="site-header wrap">
-      <a class="brand" href={href()} aria-label="日常之间，首页"><span class="brand-mark">间</span><span>{site.title}<small>{site.subtitle}</small></span></a>
+      <a class="brand" href={href()} aria-label="Rainy Tom，首页"><span class="brand-mark" aria-hidden="true">rt.</span><span>{site.title}<small>{site.subtitle}</small></span></a>
       <nav aria-label="主导航">
         <a href={href()} aria-current={path === href() || path.includes('/page/') ? 'page' : undefined}>文章</a>
-        <a href={href('tags/')} aria-current={path.includes('/tags/') ? 'page' : undefined}>标签</a>
         <a href={href('about/')} aria-current={path.includes('/about/') ? 'page' : undefined}>关于</a>
-        <button id="theme-toggle" type="button" aria-label="切换明暗主题" title="切换明暗主题"><span class="sun" aria-hidden="true">☀</span><span class="moon" aria-hidden="true">☾</span></button>
+        <a class="nav-github" href={site.github} target="_blank" rel="noopener noreferrer">GitHub ↗</a>
+        <a class="nav-search" href={href('?focus=search')} aria-label="搜索全站" title="搜索全站 · Ctrl / ⌘ K"><svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m16 16 4 4" stroke="currentColor" stroke-width="1.5"/></svg></a>
+        <button id="theme-toggle" type="button" aria-label="切换明暗主题" aria-pressed="false" title="切换明暗主题"><svg class="theme-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M12 4a8 8 0 0 1 0 16Z" fill="currentColor"/></svg></button>
       </nav>
     </header>
     <main id="main" class="wrap"><slot /></main>
-    <footer class="site-footer wrap">
-      <div><a class="footer-title" href={href()}>{site.title}</a><p>保持好奇，慢慢记录。</p><small>© {new Date().getFullYear()} {site.author}</small></div>
-      <div class="footer-links"><a href={href('rss.xml')}>RSS 订阅 ↗</a><a href={site.github} target="_blank" rel="noopener noreferrer">GitHub ↗</a><a href={href('about/')}>关于这个小站</a></div>
-    </footer>
+    <footer class="site-footer wrap"><div><a class="footer-title" href={href()}>{site.title}</a><p>保持好奇，慢慢记录。</p></div><div class="footer-right"><div class="footer-links"><a href={href('rss.xml')}>RSS ↗</a><a href={site.github} target="_blank" rel="noopener noreferrer">GitHub ↗</a><a href={href('about/')}>关于</a></div><small>© {new Date().getFullYear()} {site.author}</small></div></footer>
     <script>
-      const button = document.querySelector<HTMLButtonElement>('#theme-toggle');
-      const media = matchMedia('(prefers-color-scheme: dark)');
-      button?.addEventListener('click', () => {
-        const current = document.documentElement.dataset.theme || (media.matches ? 'dark' : 'light');
-        const next = current === 'dark' ? 'light' : 'dark';
-        document.documentElement.dataset.theme = next;
-        try { localStorage.setItem('theme', next); } catch {}
-      });
-      media.addEventListener('change', (event) => {
-        try { if (localStorage.getItem('theme')) return; } catch {}
-        document.documentElement.dataset.theme = event.matches ? 'dark' : 'light';
-      });
+      import '../scripts/site-ui';
     </script>
   </body>
 </html>
