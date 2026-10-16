@@ -1,0 +1,68 @@
+---
+import '../styles/global.css';
+import { site } from '../config';
+import { href } from '../lib/posts';
+interface Props { title?: string; description?: string; type?: 'website' | 'article'; date?: string; }
+const { title, description = site.description, type = 'website', date } = Astro.props;
+const pageTitle = title ? `${title} · ${site.title}` : `${site.title} · 技术、生活与随笔`;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const path = Astro.url.pathname;
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{pageTitle}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <meta property="og:title" content={pageTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content={type} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:locale" content="zh_CN" />
+    <meta property="og:site_name" content={site.title} />
+    {date && <meta property="article:published_time" content={`${date}T00:00:00+08:00`} />}
+    <link rel="icon" type="image/svg+xml" href={href('favicon.svg')} />
+    <link rel="alternate" type="application/rss+xml" title={site.title} href={href('rss.xml')} />
+    <link rel="sitemap" href={href('sitemap-index.xml')} />
+    <script is:inline>
+      try {
+        const saved = localStorage.getItem('theme');
+        document.documentElement.dataset.theme = saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      } catch { /* 无存储权限时跟随 CSS 系统主题。 */ }
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">跳到正文</a>
+    <header class="site-header wrap">
+      <a class="brand" href={href()} aria-label="日常之间，首页"><span class="brand-mark">间</span><span>{site.title}<small>{site.subtitle}</small></span></a>
+      <nav aria-label="主导航">
+        <a href={href()} aria-current={path === href() || path.includes('/page/') ? 'page' : undefined}>文章</a>
+        <a href={href('tags/')} aria-current={path.includes('/tags/') ? 'page' : undefined}>标签</a>
+        <a href={href('about/')} aria-current={path.includes('/about/') ? 'page' : undefined}>关于</a>
+        <button id="theme-toggle" type="button" aria-label="切换明暗主题" title="切换明暗主题"><span class="sun" aria-hidden="true">☀</span><span class="moon" aria-hidden="true">☾</span></button>
+      </nav>
+    </header>
+    <main id="main" class="wrap"><slot /></main>
+    <footer class="site-footer wrap">
+      <div><a class="footer-title" href={href()}>{site.title}</a><p>保持好奇，慢慢记录。</p><small>© {new Date().getFullYear()} {site.author}</small></div>
+      <div class="footer-links"><a href={href('rss.xml')}>RSS 订阅 ↗</a><a href={site.github} target="_blank" rel="noopener noreferrer">GitHub ↗</a><a href={href('about/')}>关于这个小站</a></div>
+    </footer>
+    <script>
+      const button = document.querySelector<HTMLButtonElement>('#theme-toggle');
+      const media = matchMedia('(prefers-color-scheme: dark)');
+      button?.addEventListener('click', () => {
+        const current = document.documentElement.dataset.theme || (media.matches ? 'dark' : 'light');
+        const next = current === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        try { localStorage.setItem('theme', next); } catch {}
+      });
+      media.addEventListener('change', (event) => {
+        try { if (localStorage.getItem('theme')) return; } catch {}
+        document.documentElement.dataset.theme = event.matches ? 'dark' : 'light';
+      });
+    </script>
+  </body>
+</html>

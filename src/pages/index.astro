@@ -1,0 +1,6 @@
+---
+import Listing from '../components/Listing.astro';
+import { allPosts } from '../lib/posts';
+const all = await allPosts();
+---
+<Listing posts={all.slice(0, 5)} all={all} current={1} total={Math.ceil(all.length / 5)} />
