@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import MiniSearch from 'minisearch';
 import { gzipSync } from 'node:zlib';
-import { createIndex, isIndexableFile } from '../scripts/build-search.js';
+import { mkdtemp, mkdir, writeFile, symlink, rm } from 'node:fs/promises';
+import { execFileSync } from 'node:child_process';
+import os from 'node:os';
+import path from 'node:path';
+import { createIndex, isIndexableFile, repositoryDocuments } from '../scripts/build-search.js';
 import { indexOptions, matchesFilters, sortItems, tokenize, decodeIndexBuffer } from '../scripts/search-shared.js';
 import { assetUrl, siteBase } from '../scripts/site-paths.js';
 
@@ -45,4 +49,16 @@ test('索引兼容原始 gzip 和 HTTP 层已解压的响应，避免重复解�
   const json = createIndex(documents);
   assert.equal(await decodeIndexBuffer(new TextEncoder().encode(json).buffer), json);
   assert.equal(await decodeIndexBuffer(Uint8Array.from(gzipSync(json)).buffer), json);
+});
+test('全仓库索引不跟随符号链接读取仓库外文件', async t => {
+  const temp = await mkdtemp(path.join(os.tmpdir(), 'rainy-search-symlink-'));
+  t.after(() => rm(temp, { recursive: true, force: true }));
+  const root = path.join(temp, 'repo');
+  await mkdir(root);
+  execFileSync('git', ['init', '-q', '-b', 'main', root]);
+  const outside = path.join(temp, 'outside.md');
+  await writeFile(outside, 'outside fixture must not be indexed');
+  await writeFile(path.join(root, 'note.md'), 'public text');
+  await symlink(outside, path.join(root, 'linked.md'));
+  assert.deepEqual((await repositoryDocuments({ root })).map(doc => doc.path), ['note.md']);
 });

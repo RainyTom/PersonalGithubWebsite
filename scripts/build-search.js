@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, lstat } from 'node:fs/promises';
 import path from 'node:path';
 import MiniSearch from 'minisearch';
 import { indexOptions } from './search-shared.js';
@@ -23,7 +23,8 @@ export async function repositoryDocuments({ root = process.cwd(), github = 'http
     const absolute = path.join(root, file);
     let body;
     try {
-      if ((await stat(absolute)).size > 1024 * 1024) continue;
+      const info = await lstat(absolute);
+      if (!info.isFile() || info.isSymbolicLink() || info.size > 1024 * 1024) continue;
       body = await readFile(absolute, 'utf8');
     } catch (error) { if (error.code === 'ENOENT') continue; throw error; }
     if (body.includes('\0')) continue;
