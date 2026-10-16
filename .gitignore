@@ -2,6 +2,7 @@ node_modules/
 dist/
 .astro/
 docs/.vitepress/cache/
+docs/.vitepress/.temp/
 docs/.vitepress/dist/
 docs/wiki/.generation.lock/
 .env

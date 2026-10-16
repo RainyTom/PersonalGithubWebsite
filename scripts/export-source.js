@@ -2,7 +2,7 @@ import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
 // 机械导出受控文本文件，供需要一次复制完整源码的读者使用。
-const skip = new Set(['.git', 'node_modules', '.astro', 'dist', 'cache', 'artifacts']);
+const skip = new Set(['.git', 'node_modules', '.astro', '.temp', 'dist', 'cache', 'artifacts']);
 async function files(dir = '.') {
   const output = [];
   for (const entry of (await readdir(dir, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
