@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { dateInTimezone, generate, validateArticle, validateTopics } from '../scripts/generate-content.js';
 import frontmatter from '../scripts/frontmatter.js';
+import { parse } from 'yaml';
 
 const env = { OPENAI_API_KEY: 'test-only', OPENAI_MODEL: 'mock-model' };
 const article = { title: '可验证的自动化发布', summary: '比较失败策略与幂等边界。', tags: ['自动化', '测试'], body: '# 可验证的自动化发布\n\n## 前提\n\n' + '这是一个受控示例，讨论输入、输出和可观察的失败行为。'.repeat(20) + '\n\n| 操作 | 行为 |\n| --- | --- |\n| 重试 | 保持幂等 |\n' };
@@ -15,7 +16,7 @@ async function setup(t) {
   await mkdir(path.join(root, 'wiki'));
   const topicsFile = path.join(root, 'topics.yaml');
   await writeFile(topicsFile, 'topics:\n  - title: 自动化\n    path: engineering/automation\n    categories: [工程实践, 自动化]\n    tags: [DevOps]\n');
-  return { root, topicsFile, now: new Date('2026-10-16T04:00:00Z'), env };
+  return { root, topicsFile, categoryFile: path.join(root, 'category.config.yaml'), now: new Date('2026-10-16T04:00:00Z'), env };
 }
 test('北京时间跨日边界', () => {
   assert.equal(dateInTimezone(new Date('2026-10-15T15:59:59Z')), '2026-10-15');
@@ -35,7 +36,8 @@ test('生成文章及层级别名、目录索引；当天重复运行不调用 A
   const first = await generate({ ...options, fetchImpl });
   assert.equal(first.created, true);
   assert.equal(frontmatter(await readFile(first.file, 'utf8')).data.source, 'openai');
-  assert.match(await readFile(path.join(options.root, 'wiki/engineering/.category.config.yaml'), 'utf8'), /工程实践/);
+  assert.match(await readFile(options.categoryFile, 'utf8'), /工程实践/);
+  await assert.rejects(readFile(path.join(options.root, 'wiki/engineering/.category.config.yaml')), { code: 'ENOENT' });
   const catalog = JSON.parse(await readFile(path.join(options.root, '.vitepress/generated/catalog.json'), 'utf8'));
   assert.equal(catalog.pages.length, 1);
   assert.equal((await generate({ ...options, fetchImpl })).created, false);
@@ -75,4 +77,21 @@ test('并发生成只调用一次 API', async t => {
   await assert.rejects(generate({ ...options, fetchImpl: async () => { throw new Error('不应重复调用'); } }), /另一个/);
   release();
   assert.equal((await first).created, true);
+});
+test('AI 填入预声明空分类时保留全局别名和排序，不重复创建分类', async t => {
+  const options = await setup(t);
+  await writeFile(options.categoryFile, 'name: 我的知识库\ncategories:\n  - path: engineering\n    name: 全局工程别名\n    order: 3\n    children:\n      - path: automation\n        name: 自动化手册\n        collapsed: true\n');
+  await generate({ ...options, fetchImpl: async () => response() });
+  const config = parse(await readFile(options.categoryFile, 'utf8'));
+  assert.equal(config.categories.length, 1);
+  assert.equal(config.categories[0].name, '全局工程别名');
+  assert.equal(config.categories[0].order, 3);
+  assert.equal(config.categories[0].children.length, 1);
+  assert.equal(config.categories[0].children[0].name, '自动化手册');
+  assert.equal(config.categories[0].children[0].collapsed, true);
+});
+test('全局配置隐藏目标分类时，在请求 API 之前拒绝生成', async t => {
+  const options = await setup(t);
+  await writeFile(options.categoryFile, 'categories:\n  - path: engineering\n    hidden: true\n');
+  await assert.rejects(generate({ ...options, fetchImpl: async () => { throw new Error('不应请求 API'); } }), /目标分类被设置为 hidden/);
 });

@@ -15,7 +15,7 @@
       "title": "内容组织",
       "relativePath": "authoring.md",
       "url": "/authoring.html",
-      "summary": "使用层级文件夹和 .category.config.yaml 管理 Wiki 分类、别名与排序。",
+      "summary": "使用全局 category.config.yaml 定义分类树，支持不存在文件夹的空分类。",
       "date": "",
       "tags": [],
       "source": "manual",

@@ -80,3 +80,37 @@ test('首页与 index.md URL 转换稳定', () => {
   assert.equal(routeFor('wiki/foo/index.md'), '/wiki/foo/');
   assert.equal(routeFor('wiki/foo/bar.md'), '/wiki/foo/bar.html');
 });
+test('全局配置在文件夹完全不存在时仍显示多层空分类，且不伪造文章链接', async t => {
+  const root = await temp(t);
+  await rm(path.join(root, 'wiki'), { recursive: true });
+  const categoryFile = path.join(root, 'category.config.yaml');
+  await put(root, 'category.config.yaml', 'name: 全局知识目录\ncategories:\n  - path: data\n    name: 数据平台\n    order: 1\n    children:\n      - path: catalog\n        name: 元数据与 Catalog\n        collapsed: true\n');
+  const result = await updateSidebar(root, { categoryFile });
+  assert.equal(result.sidebar[1].text, '全局知识目录');
+  assert.equal(result.sidebar[1].items[0].text, '数据平台');
+  assert.equal(result.sidebar[1].items[0].items[0].text, '元数据与 Catalog');
+  assert.equal(result.sidebar[1].items[0].items[0].link, undefined);
+  assert.equal(result.pages.length, 0);
+  assert.equal(result.categories.length, 2);
+  await assert.rejects(stat(path.join(root, 'wiki')), { code: 'ENOENT' });
+});
+test('全局分类与实际文件夹合并，别名优先于旧配置，隐藏虚拟分类不显示', async t => {
+  const root = await temp(t);
+  const categoryFile = path.join(root, 'category.config.yaml');
+  await put(root, 'category.config.yaml', 'categories:\n  - path: actual\n    name: 全局别名\n    order: 1\n  - path: empty\n    name: 空分类\n    order: 2\n  - path: hidden\n    hidden: true\n');
+  await put(root, 'wiki/actual/.category.config.yaml', 'name: 旧别名\n');
+  await put(root, 'wiki/actual/a.md', article('真实文章'));
+  await put(root, 'wiki/unconfigured/a.md', article('自动发现'));
+  const result = await buildWiki(root, { categoryFile });
+  assert.deepEqual(result.sidebar[1].items.map(item => item.text), ['全局别名', '空分类', 'unconfigured']);
+  assert.equal(result.pages.find(item => item.title === '真实文章').breadcrumbs[1].text, '全局别名');
+  assert.ok(result.excluded.includes('wiki/hidden/**'));
+});
+test('全局分类拒绝重复路径、路径穿越和无效字段', async t => {
+  const root = await temp(t);
+  const categoryFile = path.join(root, 'category.config.yaml');
+  for (const content of ['categories: [{path: ../outside}]', 'categories: [{path: a}, {path: a}]', 'categories: [{path: a, collapse: true}]']) {
+    await put(root, 'category.config.yaml', content);
+    await assert.rejects(buildWiki(root, { categoryFile }), /category.config.yaml 无效/);
+  }
+});

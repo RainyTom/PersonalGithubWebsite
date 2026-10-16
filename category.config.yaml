@@ -1,0 +1,4 @@
+# 全局分类树。path 对应 docs/wiki/ 下的文件夹名称，可通过 children 嵌套。
+# 分类即使没有对应文件夹或文章，也会显示；没有 index.md 时不生成链接。
+name: 知识目录
+categories: []

@@ -53,9 +53,12 @@ npm run docs:build
 ```
 
 ```yaml [分类配置]
-name: 分类显示名称
-order: 10
-collapsed: false
+name: 知识目录
+categories:
+  - path: reference
+    name: 参考资料
+    order: 10
+    collapsed: false
 ```
 
 :::

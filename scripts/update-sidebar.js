@@ -1,8 +1,8 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildWiki, writeIfChanged } from './wiki.js';
-export async function updateSidebar(root = path.resolve('docs')) {
-  const result = await buildWiki(root);
+export async function updateSidebar(root = path.resolve('docs'), options = {}) {
+  const result = await buildWiki(root, options);
   const generated = path.join(root, '.vitepress/generated');
   for (const [name, value] of Object.entries({ sidebar: result.sidebar, catalog: { pages: result.pages, categories: result.categories }, excluded: result.excluded })) {
     await writeIfChanged(path.join(generated, `${name}.json`), `${JSON.stringify(value, null, 2)}\n`);

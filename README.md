@@ -17,6 +17,7 @@
 ├── package-lock.json
 ├── tsconfig.json
 ├── README.md
+├── category.config.yaml                 # 全局分类树；不存在的文件夹也显示为空分类
 ├── config/topics.yaml                   # AI 主题、目标路径、各层别名
 ├── docs/
 │   ├── index.md                         # 知识库概览
@@ -26,8 +27,7 @@
 │   ├── reference.md                     # 完整高密度 Markdown 排版示例
 │   ├── public/favicon.svg
 │   ├── wiki/
-│   │   ├── .gitkeep
-│   │   └── .category.config.yaml        # 知识目录根别名；空目录不显示
+│   │   └── .gitkeep
 │   └── .vitepress/
 │       ├── config.mts                   # 搜索、Mermaid fence、SEO、导航
 │       ├── generated/                   # 自动维护，勿手动编辑
@@ -92,31 +92,42 @@ VitePress 输出显式 `.html` 文章链接，分类 `index.md` 使用目录链�
 例如，按需创建以下目录（示例不会预先写入知识库）：
 
 ```text
+category.config.yaml              # 全局配置
 docs/wiki/data-platform/
-├── .category.config.yaml          # name: 数据平台
 └── catalog/
-    ├── .category.config.yaml      # name: 元数据与 Catalog
-    ├── index.md                   # 可选，分类入口页
+    ├── index.md                  # 可选，分类入口页
     └── permissions.md
 ```
 
-每一层可放一个 `.category.config.yaml`，完整格式如下：
+只在仓库根目录维护一个 **`category.config.yaml`**。`path` 是当前层文件夹名，使用 `children` 定义下一层：
 
 ```yaml
-name: 元数据与 Catalog
-order: 20
-collapsed: false
-hidden: false
+name: 知识目录
+categories:
+  - path: data-platform
+    name: 数据平台
+    order: 10
+    collapsed: false
+    children:
+      - path: catalog
+        name: 元数据与 Catalog
+        order: 20
+        collapsed: false
+        hidden: false
 ```
 
 | 字段 | 默认值 | 作用 |
 | --- | --- | --- |
+| `path` | 必填 | 当前层文件夹名，相对于父分类，不能包含斜杠或 `..` |
 | `name` | 文件夹名 | 显示别名，不改变磁盘路径与 URL |
 | `order` | 未指定排最后 | 同级分类和文章共享排序，越小越靠前 |
 | `collapsed` | `false` | 初始折叠状态，支持多层菜单 |
 | `hidden` | `false` | 子树不进入导航、搜索、归档和构建产物 |
+| `children` | `[]` | 嵌套分类列表 |
 
-同序项按中文标题及路径稳定排序。空目录不显示。配置字段拼错、类型错误、重复 YAML key 会明确报错，不会悄悄忽略。分类包含 `index.md` 时分类标题可点击，否则只承担折叠分组。建议控制主题目录深度，侧栏默认主题适合不超过六级。
+**全局配置声明的分类即使没有对应文件夹或文章，也显示为空分类。** 不创建虚构页面或失效链接，不计为文章；首页显示“0 篇条目 · 空”。有文章后自动合并进入对应分类。未声明的非空文件夹仍会自动发现，未声明的空文件夹不显示。当前全局配置为 `categories: []`，请按需填入自己的分类。
+
+全局字段优先于旧的每层 `.category.config.yaml`，旧格式仅为兼容保留，不再要求创建。配置字段拼错、重复路径、类型错误和重复 YAML key 会明确报错。分类包含 `index.md` 时标题可点击，否则只显示分类名称与可展开子项。同序项按中文标题及路径稳定排序，建议不超过六层。
 
 文章完整示例：
 
@@ -181,7 +192,7 @@ topics:
     tags: ["架构", "文档"]
 ```
 
-`path` 位于 `docs/wiki/` 下，安全路径段由小写字母、数字和短横线组成，禁止 `..` 与绝对路径。`categories` 必须逐层对应路径别名；同一路径不能配置冲突别名。成功生成后才创建这些目录和分类 YAML，已有别名/排序不覆盖。生成文章后立即重新维护目录索引，构建时还会再次同步。
+主题 `path` 位于 `docs/wiki/` 下，安全路径段由小写字母、数字和短横线组成，禁止 `..` 与绝对路径。主题的 `categories` 逐层对应建议别名；同一路径不能配置冲突别名。成功生成后将缺失分类追加到全局 `category.config.yaml`，已有别名/排序不覆盖，不再新建每层配置文件。生成文章后立即重新维护目录索引，构建时还会再次同步。
 
 默认每小时检查一次，每轮最多一次 API 请求，90 秒超时。不配置 Key 或模型时跳过 AI，运行摘要和 warning 会说明；站点仍正常构建并发布手写内容。API 出错时任务失败，下小时重试，不用本地模板冒充 AI 新稿。不补写离线期间历史日期。
 
@@ -275,7 +286,7 @@ git pull --ff-only
 1. 检出最新 main，安装 Node 24，`npm ci`，运行测试。
 2. 每日文章缺失且凭据齐全时生成 Markdown；否则说明跳过原因。
 3. 重新扫描分类和目录，执行类型校验与 VitePress 构建。
-4. 构建通过后，仅暂存 `docs/wiki/` 和生成目录 JSON；有变化才提交并推送。
+4. 构建通过后，仅暂存 `category.config.yaml`、`docs/wiki/` 和生成目录 JSON；有变化才提交并推送。
 5. 上传 `docs/.vitepress/dist`，由独立部署 job 发布 Pages。
 
 先构建再提交的顺序可以避免自动提交无法编译的文章。机器人使用 `GITHUB_TOKEN` 推送不会启动额外 push 工作流，当前工作流直接完成部署。检测到远端变化时失败，不强推；下一小时基于最新 main 重试。
@@ -291,7 +302,7 @@ git pull --ff-only
 - 320/390/768/1440px 下无整页横向滚动；手机“目录”按钮打开抽屉；电脑左栏固定、右侧显示页面大纲。
 - 打开排版参考，Mermaid 显示 SVG 而非只有源码；切换深浅色后图仍可读，宽表格只在局部滚动。
 - `Ctrl+K` 搜索“分类别名”，能从全文索引找到内容组织；英文关键词也能搜索。
-- 修改某层 `.category.config.yaml` 的 `name`，目录和面包屑同步变更；移动或删除文章后无旧链接残留。
+- 修改全局 `category.config.yaml` 中的 `name`，目录和面包屑同步变更；仅声明分类而不创建文件夹时，仍显示空分类。移动或删除文章后，已声明分类继续保留。
 - 新增知识文章后，归档、标签、分类计数同步变化；草稿、隐藏内容不出现在搜索或构建产物中。
 - Actions 成功且网站可以直接刷新深层 URL；查看页面源码包含 title、description、canonical 和 Open Graph，`sitemap.xml` 可访问。
 - 手动连续触发两次：已有当天 AI 条目时不再请求 API、不产生第二篇文章或空提交。
