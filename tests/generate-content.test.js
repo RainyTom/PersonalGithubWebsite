@@ -1,78 +1,55 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, readFile, writeFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, writeFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { dateInTimezone, generate, validateArticle, validateTopics } from '../scripts/generate-content.js';
-import frontmatter from '../scripts/frontmatter.js';
+import matter from '../scripts/frontmatter.js';
+import { dateInTimezone, generate, requestArticle } from '../scripts/generate-content.js';
 
-const env = { OPENAI_API_KEY: 'test-only', OPENAI_MODEL: 'mock-model' };
-const article = { title: '可验证的自动化发布', summary: '比较失败策略与幂等边界。', tags: ['自动化', '测试'], body: '# 可验证的自动化发布\n\n## 前提\n\n' + '这是一个受控示例，讨论输入、输出和可观察的失败行为。'.repeat(20) + '\n\n| 操作 | 行为 |\n| --- | --- |\n| 重试 | 保持幂等 |\n' };
-const response = () => Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(article) } }] });
-async function setup(t) {
-  const root = await mkdtemp(path.join(os.tmpdir(), 'wiki-generation-test-'));
-  t.after(() => rm(root, { recursive: true, force: true }));
-  await mkdir(path.join(root, 'wiki'));
-  const topicsFile = path.join(root, 'topics.yaml');
-  await writeFile(topicsFile, 'topics:\n  - title: 自动化\n    path: engineering/automation\n    categories: [工程实践, 自动化]\n    tags: [DevOps]\n');
-  return { root, topicsFile, now: new Date('2026-10-16T04:00:00Z'), env };
+async function temp(t) {
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'everyday-notes-test-'));
+  t.after(() => rm(dir, { recursive: true, force: true }));
+  return dir;
 }
-test('北京时间跨日边界', () => {
+test('北京时间跨日时切换日期，不受 runner 时区影响', () => {
   assert.equal(dateInTimezone(new Date('2026-10-15T15:59:59Z')), '2026-10-15');
   assert.equal(dateInTimezone(new Date('2026-10-15T16:00:00Z')), '2026-10-16');
 });
-test('没有凭据时不写占位文章、不调用 API', async t => {
-  const options = await setup(t);
-  const result = await generate({ ...options, env: {}, fetchImpl: () => { throw new Error('不应请求'); } });
-  assert.equal(result.created, false);
-  assert.match(result.reason, /未配置/);
-  assert.deepEqual(await readdir(path.join(options.root, 'wiki')), []);
-});
-test('生成文章及层级别名、目录索引；当天重复运行不调用 API', async t => {
-  const options = await setup(t);
-  let calls = 0;
-  const fetchImpl = async (url, init) => { calls++; assert.equal(url, 'https://api.openai.com/v1/chat/completions'); assert.equal(JSON.parse(init.body).response_format.type, 'json_object'); return response(); };
-  const first = await generate({ ...options, fetchImpl });
+test('同一天重复检查不写文件，下一天生成新文章', async t => {
+  const dir = await temp(t);
+  const options = { dir, now: new Date('2026-10-16T04:00:00Z'), env: { CONTENT_MODE: 'library' } };
+  const first = await generate(options);
+  const before = await readFile(first.file, 'utf8');
   assert.equal(first.created, true);
-  assert.equal(frontmatter(await readFile(first.file, 'utf8')).data.source, 'openai');
-  assert.match(await readFile(path.join(options.root, 'wiki/engineering/.category.config.yaml'), 'utf8'), /工程实践/);
-  const catalog = JSON.parse(await readFile(path.join(options.root, '.vitepress/generated/catalog.json'), 'utf8'));
-  assert.equal(catalog.pages.length, 1);
-  assert.equal((await generate({ ...options, fetchImpl })).created, false);
-  assert.equal(calls, 1);
+  assert.equal((await generate(options)).created, false);
+  assert.equal(await readFile(first.file, 'utf8'), before);
+  assert.equal(matter(before).data.date, '2026-10-16');
+  await generate({ ...options, now: new Date('2026-10-17T04:00:00Z') });
+  assert.equal((await readdir(dir)).length, 2);
 });
-test('手写文章不占用 AI 配额，下一天仍可生成；已有分类别名不覆盖', async t => {
-  const options = await setup(t);
-  await writeFile(path.join(options.root, 'wiki/manual.md'), '---\ntitle: 手写\ndate: "2026-10-16"\nsource: manual\n---\n# 手写');
-  await mkdir(path.join(options.root, 'wiki/engineering'));
-  await writeFile(path.join(options.root, 'wiki/engineering/.category.config.yaml'), 'name: 我的工程目录\norder: 4\n');
-  await generate({ ...options, fetchImpl: async () => response() });
-  const next = await generate({ ...options, now: new Date('2026-10-17T04:00:00Z'), fetchImpl: async () => Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify({ ...article, title: '下一天的独立条目' }) } }] }) });
-  assert.equal(next.created, true);
-  assert.match(await readFile(path.join(options.root, 'wiki/engineering/.category.config.yaml'), 'utf8'), /我的工程目录/);
+test('手动发布的当天文章也会阻止自动重复生成；草稿不会', async t => {
+  const dir = await temp(t);
+  const options = { dir, now: new Date('2026-10-16T04:00:00Z'), env: {} };
+  await writeFile(path.join(dir, 'manual.md'), '---\ndate: 2026-10-16\ndraft: true\n---\nDraft');
+  assert.equal((await generate(options)).created, true);
+  const other = await temp(t);
+  await writeFile(path.join(other, 'manual.md'), '---\ndate: "2026-10-16"\n---\nPublished');
+  assert.equal((await generate({ ...options, dir: other })).created, false);
 });
-test('API 失败无文章和空分类残留，锁释放后可重试', async t => {
-  const options = await setup(t);
-  await assert.rejects(generate({ ...options, fetchImpl: async () => new Response('private-body', { status: 429 }) }), /HTTP 429/);
-  assert.deepEqual(await readdir(path.join(options.root, 'wiki')), []);
-  assert.equal((await generate({ ...options, fetchImpl: async () => response() })).created, true);
+test('API 出错或 JSON 无效时不写入文章，也不回显响应内容', async t => {
+  const dir = await temp(t);
+  const env = { CONTENT_MODE: 'openai', OPENAI_API_KEY: 'test-only', OPENAI_MODEL: 'test-model' };
+  await assert.rejects(generate({ dir, env, fetchImpl: async () => new Response('secret-error-body', { status: 429 }) }), /HTTP 429/);
+  assert.deepEqual(await readdir(dir), []);
+  await assert.rejects(requestArticle({ title: 'test', tags: ['test'] }, '2026-10-16', env, async () => Response.json({ choices: [{ finish_reason: 'stop', message: { content: '{"title":"empty"}' } }] })), /字段/);
 });
-test('不允许模板代码、无结构正文、路径穿越和别名冲突', () => {
-  assert.throws(() => validateArticle({ ...article, body: article.body + '\n<script>alert(1)</script>' }), /HTML\/Vue/);
-  assert.throws(() => validateArticle({ ...article, body: article.body + '\n{{ process.env }}' }), /HTML\/Vue/);
-  assert.throws(() => validateArticle({ ...article, body: '普通正文'.repeat(100) }), /表格或 Mermaid/);
-  assert.throws(() => validateTopics({ topics: [{ title: 'x', path: '../outside', categories: ['x'], tags: ['x'] }] }), /path/);
-  assert.throws(() => validateTopics({ topics: [{ title: 'a', path: 'same/a', categories: ['A', 'a'], tags: ['x'] }, { title: 'b', path: 'same/b', categories: ['B', 'b'], tags: ['x'] }] }), /别名冲突/);
-});
-test('并发生成只调用一次 API', async t => {
-  const options = await setup(t);
-  let release;
-  const gate = new Promise(resolve => { release = resolve; });
-  let requested;
-  const started = new Promise(resolve => { requested = resolve; });
-  const first = generate({ ...options, fetchImpl: async () => { requested(); await gate; return response(); } });
-  await started;
-  await assert.rejects(generate({ ...options, fetchImpl: async () => { throw new Error('不应重复调用'); } }), /另一个/);
-  release();
-  assert.equal((await first).created, true);
+test('API 正常 JSON 可解析，标题含冒号/换行也不破坏 frontmatter', async t => {
+  const dir = await temp(t);
+  const article = { title: '标题: "例子"\n第二行', summary: '一个摘要', tags: ['技术'], body: '这是一篇用于验证正确响应的文章。'.repeat(30) };
+  const result = await generate({ dir, env: { CONTENT_MODE: 'openai', OPENAI_API_KEY: 'test-only', OPENAI_MODEL: 'test-model' }, fetchImpl: async (url, init) => {
+    assert.equal(url, 'https://api.openai.com/v1/chat/completions');
+    assert.equal(JSON.parse(init.body).response_format.type, 'json_object');
+    return Response.json({ choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(article) } }] });
+  } });
+  assert.equal(matter(await readFile(result.file, 'utf8')).data.title, article.title);
 });
