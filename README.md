@@ -1,10 +1,10 @@
-# 日常之间 · 自动化博客
+# RainyTom Wiki
 
-Astro 7 + 纯 CSS + Markdown + GitHub Pages + GitHub Actions。移动优先，最大内容宽度 920px，浅色/深色主题，中文排版，无外部字体或 UI 框架。正文静态输出，浏览器只运行主题切换脚本。
+高信息密度的个人知识库：VitePress + Vue + 纯 CSS + Mermaid + 中文本地全文搜索，发布到 GitHub Pages。电脑端左侧目录、中央正文、右侧大纲；移动端目录抽屉。支持面包屑、标签、归档、宽表格、代码组、信息框、折叠面板、深色模式和 RSS。
 
-选择 Astro 是因为博客主要是内容阅读：可以在构建时生成完整 HTML，直接使用 Markdown 内容集合、Shiki 高亮、RSS 和 sitemap，无需数据库或常驻服务。纯 CSS 足够覆盖本项目的布局与主题需求。
+旧 Astro 默认文章、分类与本地主题库已清理，保留 Git 历史可恢复。`docs/wiki/` 初始为空；“内容组织”“排版参考”是站点维护说明，不进入文章归档和标签。没有预置领域分类或虚构知识条目。
 
-本项目已提供完整源码。`npm run source` 将所有手写源文件汇总到 `artifacts/PROJECT-SOURCE.md`，方便一次查看和复制；`package-lock.json` 直接使用仓库版本，以 `npm ci` 复现依赖。`artifacts/`、`dist/`、`.env` 不提交。
+版本说明：固定使用 **VitePress 2.0.0-alpha.20**。检查时稳定版 1.6.4 的 Vite 依赖仍有已知漏洞，因此采用 2.x 预发行版并锁定依赖；请理解预发行版本可能有兼容性变化，升级前运行测试、类型检查与构建。Node.js 要求 24+。项目不会自动追随最新版。
 
 ## 目录结构
 
@@ -12,245 +12,300 @@ Astro 7 + 纯 CSS + Markdown + GitHub Pages + GitHub Actions。移动优先，�
 .
 ├── .env.example
 ├── .gitignore
-├── .github/workflows/publish.yml      # 每小时检查 + 内容提交 + Pages 部署
-├── README.md
+├── .github/workflows/publish.yml
 ├── package.json
 ├── package-lock.json
 ├── tsconfig.json
-├── astro.config.mjs                   # 自动推导 site / base
-├── content-library/topics.js          # 本地主题与每日练习
-├── public/favicon.svg
+├── README.md
+├── config/topics.yaml                   # AI 主题、目标路径、各层别名
+├── docs/
+│   ├── index.md                         # 知识库概览
+│   ├── archive.md                       # 归档
+│   ├── tags.md                          # 标签筛选
+│   ├── authoring.md                     # 文件夹与分类配置使用说明
+│   ├── reference.md                     # 完整高密度 Markdown 排版示例
+│   ├── public/favicon.svg
+│   ├── wiki/
+│   │   ├── .gitkeep
+│   │   └── .category.config.yaml        # 知识目录根别名；空目录不显示
+│   └── .vitepress/
+│       ├── config.mts                   # 搜索、Mermaid fence、SEO、导航
+│       ├── generated/                   # 自动维护，勿手动编辑
+│       │   ├── sidebar.json
+│       │   ├── catalog.json
+│       │   └── excluded.json
+│       └── theme/
+│           ├── index.ts
+│           ├── catalog.ts
+│           ├── style.css
+│           ├── PageMeta.vue
+│           ├── MermaidDiagram.vue
+│           ├── KnowledgeIndex.vue
+│           ├── EntryList.vue
+│           └── TagIndex.vue
 ├── scripts/
-│   ├── export-source.js
+│   ├── dev.js                           # 本地预览 + 目录变化监听
+│   ├── wiki.js                          # 文件扫描、校验、分类树和内容索引
+│   ├── update-sidebar.js
 │   ├── frontmatter.js
+│   ├── feed.js                          # 摘要 RSS 输出
 │   ├── generate-content.js
-│   └── safe-markdown.js
-├── tests/generate-content.test.js
-└── src/
-    ├── config.ts                     # 名称、描述、作者、GitHub 链接
-    ├── content.config.ts             # frontmatter 校验
-    ├── content/posts/
-    │   ├── 2026-10-10-small-tools.md
-    │   ├── 2026-10-11-reading-notes.md
-    │   ├── 2026-10-12-static-site.md
-    │   ├── 2026-10-13-walk.md
-    │   ├── 2026-10-14-readable-code.md
-    │   └── 2026-10-15-small-blog.md
-    ├── components/
-    │   ├── Listing.astro
-    │   └── PostCard.astro
-    ├── layouts/Base.astro
-    ├── lib/posts.ts
-    ├── styles/global.css
-    └── pages/
-        ├── index.astro
-        ├── 404.astro
-        ├── about.astro
-        ├── robots.txt.ts
-        ├── rss.xml.ts
-        ├── page/[page].astro
-        ├── posts/[...id].astro
-        └── tags/
-            ├── index.astro
-            └── [tag].astro
+│   └── export-source.js                 # 完整源码导出
+└── tests/
+    ├── feed.test.js
+    ├── generate-content.test.js
+    └── wiki.test.js
 ```
 
-之后自动新增 `src/content/posts/YYYY-MM-DD-daily.md`。构建输出到 `dist/`，包括所有文章、标签、分页、`rss.xml`、`sitemap-index.xml`、`sitemap-0.xml`、`robots.txt` 和 `404.html`。
+`npm run source` 生成 `artifacts/PROJECT-SOURCE.md`，包含所有手写源文件和配置的完整内容（包括 YAML、Vue、config.mts）。依赖锁文件直接取仓库中的 `package-lock.json`。生成物、测试截图、`.env` 不公开提交。
 
 ## 本地运行
 
-需要 Node.js 24+、npm、Git 和 GitHub CLI。安装依赖之后，使用已提交的锁文件。
-
 ```bash
 npm ci
-npm run dev
-# 打开终端显示的本地地址，一般为 http://localhost:4321/
+npm run docs:dev
+# 打开终端显示的 localhost 地址，通常为 http://localhost:5173/
 ```
 
+开发脚本监听 `docs/` 的新增、移动、删除和分类 YAML 变更，自动重建 sidebar/catalog/excluded；VitePress 自动刷新页面。生成文件只有内容改变时才写入，避免无意义重载。
+
 ```bash
+npm run sidebar
 npm test
 npm run check
-npm run build
-npm run preview
+npm run docs:build
+npm run docs:preview
 ```
 
-测试 GitHub 项目子路径：
+构建输出到 `docs/.vitepress/dist/`，包含 `sitemap.xml`、摘要订阅 `rss.xml` 和 `robots.txt`。预览默认根路径；模拟线上项目子路径时：
 
 ```bash
-GITHUB_REPOSITORY=RainyTom/PersonalGithubWebsite npm run build
-GITHUB_REPOSITORY=RainyTom/PersonalGithubWebsite npm run preview
-# http://localhost:4321/PersonalGithubWebsite/
+BASE_PATH=/PersonalGithubWebsite/ npm run docs:build
+BASE_PATH=/PersonalGithubWebsite/ npm run docs:preview
+# 打开预览地址下的 /PersonalGithubWebsite/
 ```
 
-`src/config.ts` 和 `src/pages/about.astro` 是个人信息入口。初始的 6 篇文章是本项目的示例内容，`source: manual` 表示静态维护的文章，与自动发布来源区分；请按个人情况编辑，并勿将示例当作个人经历。首页每页 5 篇，第二页开始使用 `/page/2/`。内容不足 6 篇时不会显示分页。
+VitePress 输出显式 `.html` 文章链接，分类 `index.md` 使用目录链接，支持 GitHub Pages 直接刷新深层页面。
 
-## 从零创建仓库并启用 Pages
+## 用文件夹形成分类
 
-以下命令使用 Bash/Zsh。`OWNER` 自动取当前登录账号；把 `REPO` 改成你实际想用的仓库名，无需输入尖括号。这里的默认值是 `PersonalGithubWebsite`，创建后公开可见。个人主页仓库可改成 `你的用户名.github.io`，项目会自动使用根路径。
+例如，按需创建以下目录（示例不会预先写入知识库）：
 
-1. 登录并确认账号；设备登录过程中需要手动在浏览器授权，不要把 Token 发到聊天或写入仓库。
+```text
+docs/wiki/data-platform/
+├── .category.config.yaml          # name: 数据平台
+└── catalog/
+    ├── .category.config.yaml      # name: 元数据与 Catalog
+    ├── index.md                   # 可选，分类入口页
+    └── permissions.md
+```
+
+每一层可放一个 `.category.config.yaml`，完整格式如下：
+
+```yaml
+name: 元数据与 Catalog
+order: 20
+collapsed: false
+hidden: false
+```
+
+| 字段 | 默认值 | 作用 |
+| --- | --- | --- |
+| `name` | 文件夹名 | 显示别名，不改变磁盘路径与 URL |
+| `order` | 未指定排最后 | 同级分类和文章共享排序，越小越靠前 |
+| `collapsed` | `false` | 初始折叠状态，支持多层菜单 |
+| `hidden` | `false` | 子树不进入导航、搜索、归档和构建产物 |
+
+同序项按中文标题及路径稳定排序。空目录不显示。配置字段拼错、类型错误、重复 YAML key 会明确报错，不会悄悄忽略。分类包含 `index.md` 时分类标题可点击，否则只承担折叠分组。建议控制主题目录深度，侧栏默认主题适合不超过六级。
+
+文章完整示例：
+
+````markdown
+---
+title: "Catalog 的职责边界"
+date: "2026-10-16"
+summary: "区分元数据发现、权限和表状态管理。"
+tags: ["元数据", "速查"]
+type: "Reference · 速查"
+order: 10
+source: manual
+draft: false
+---
+
+# Catalog 的职责边界
+
+## 职责对照
+
+| 职责 | 输入 | 输出 |
+| --- | --- | --- |
+| 元数据发现 | 名称和范围 | 可定位的表或数据集 |
+| 权限检查 | 身份和动作 | 允许或拒绝 |
+
+::: tip 使用边界
+不同系统对 Catalog 的职责划分不同，实际行为应核对所用实现。
+:::
+````
+
+日期加引号，使用真实 `YYYY-MM-DD`。无 Frontmatter 的手写 Markdown 也能显示，标题回退为一级标题或文件名；自动文章使用完整 Frontmatter。`draft: true` 从导航、搜索和产物排除；未来日期不自动隐藏，草稿请显式设置。
+
+`docs/reference.md` 包含可直接运行的 Mermaid 图、宽表格、Code Groups、Custom Containers、Details 和双列布局，不将示例文章放入知识目录。
+
+## Mermaid 与中文搜索
+
+Mermaid 通过 `config.mts` 的 Markdown fence renderer 转成 Vue 组件，客户端按需加载 `mermaid`。使用 `securityLevel: strict`，主题切换时重新渲染；无 JavaScript 时可查看图表源码。渲染失败会显示明确提示和源码，维护者应修正语法。
+
+````markdown
+```mermaid
+flowchart LR
+  A[Markdown] --> B[目录扫描]
+  B --> C[VitePress 构建]
+  C --> D[GitHub Pages]
+```
+````
+
+本地全文搜索不需要第三方账号，浏览器按需加载静态索引。使用 `Intl.Segmenter` 和中文二字切分匹配连续汉字。按 `Ctrl+K`（macOS `⌘+K`）打开。示例：搜索“分类别名”应定位到“内容组织”的正文。
+
+## 每日 AI 更新
+
+已移除本地模板文章生成模式。脚本调用 OpenAI / 兼容 Chat Completions API，要求支持 `response_format: json_object` 和 `max_completion_tokens`。JSON 模式不保证字段符合要求，脚本还校验标题、摘要、标签、正文字数和至少一个表格或 Mermaid 图；拒绝 HTML/Vue 模板表达式和危险链接。[OpenAI 官方 JSON 模式说明](https://developers.openai.com/api/docs/guides/structured-outputs)。
+
+按北京时间判断当天是否存在非草稿 `source: openai` 文章。手写条目不占用每日 AI 额度；同日最多自动生成一篇，不会修改人工维护的文章。脚本会向模型提供近期标题以减少重复，并拒绝完全相同的标题。无法保证模型生成内容没有事实错误或语义重复。
+
+主题配置示例：
+
+```yaml
+topics:
+  - title: "技术决策记录：背景、约束和验证方式"
+    path: engineering/decisions
+    categories: ["工程实践", "技术决策"]
+    tags: ["架构", "文档"]
+```
+
+`path` 位于 `docs/wiki/` 下，安全路径段由小写字母、数字和短横线组成，禁止 `..` 与绝对路径。`categories` 必须逐层对应路径别名；同一路径不能配置冲突别名。成功生成后才创建这些目录和分类 YAML，已有别名/排序不覆盖。生成文章后立即重新维护目录索引，构建时还会再次同步。
+
+默认每小时检查一次，每轮最多一次 API 请求，90 秒超时。不配置 Key 或模型时跳过 AI，运行摘要和 warning 会说明；站点仍正常构建并发布手写内容。API 出错时任务失败，下小时重试，不用本地模板冒充 AI 新稿。不补写离线期间历史日期。
+
+本地 `.env`：把 `.env.example` 复制为 `.env`，填入自己的凭据后运行 `npm run generate`。不要把 Key 发到聊天或提交 Git。测试使用模拟响应，不消耗 API 额度。
+
+## 现有仓库配置 AI 并运行
+
+**手动操作：**获取你的 API Key，确认额度，并填写实际可用且支持上述请求参数的模型 ID。仓库中不会预设模型或写入任何凭据。
 
 ```bash
+gh auth status
+gh secret set OPENAI_API_KEY --repo RainyTom/PersonalGithubWebsite
+
+# 将占位文本替换为账号实际可用的模型 ID
+gh variable set OPENAI_MODEL --body '替换为实际模型ID' --repo RainyTom/PersonalGithubWebsite
+gh variable set OPENAI_BASE_URL --body 'https://api.openai.com/v1' --repo RainyTom/PersonalGithubWebsite
+
+gh workflow run publish.yml --ref main --repo RainyTom/PersonalGithubWebsite
+gh run list --workflow publish.yml --limit 5 --repo RainyTom/PersonalGithubWebsite
+```
+
+兼容服务使用提供商自己的 Key、模型和 HTTPS API 根路径（不要包含 `/chat/completions`）。脚本禁止 URL 凭据、查询参数和 HTTP 重定向。该 Key 会发送到此地址，只能设置可信服务。部分兼容服务参数不同，按其官方文档调整 `requestArticle()`。
+
+| 变量 | 存储位置 | 用途 |
+| --- | --- | --- |
+| `OPENAI_API_KEY` | Actions Secret / 本地 `.env` | API 鉴权，必需 |
+| `OPENAI_MODEL` | Actions Variable / 本地 `.env` | 实际模型 ID，必需 |
+| `OPENAI_BASE_URL` | Actions Variable / 本地 `.env` | 默认 `https://api.openai.com/v1` |
+| `CONTENT_TIMEZONE` | 工作流步骤 / 本地 `.env` | 默认北京时间 `Asia/Shanghai` |
+| `GITHUB_TOKEN` | GitHub 自动注入 | 内容推送与 Pages 部署，无需 PAT |
+| `GITHUB_REPOSITORY` | GitHub 自动注入 | 自动推导仓库域名、base 和编辑链接 |
+| `BASE_PATH` | 构建进程环境 | 可覆盖默认项目子路径，须以 `/` 开始/结束 |
+| `SITE_URL` | 构建进程环境 | 可覆盖 Pages 域名；自定义域名还需 DNS 和 Pages 设置 |
+
+旧版本的 `CONTENT_MODE` 已不再使用。`BASE_PATH` / `SITE_URL` 在工作流中若需覆盖，请显式增加到构建步骤 `env`，它们不是凭据。
+
+## 从零开始的 gh 命令
+
+现有仓库已初始化，不必再次创建。下面供新建副本使用。把 `REPO` 换成期望仓库名；`OWNER` 自动获取当前账号。创建的仓库为公开仓库。
+
+```bash
+# 1. 在浏览器完成设备授权，使用 HTTPS Git
 gh auth login --hostname github.com --git-protocol https --web
 gh auth status
 gh auth setup-git
 OWNER=$(gh api user --jq .login)
-REPO=PersonalGithubWebsite
-```
+REPO=wiki-repo
 
-2. 本地初始化、校验并首次提交。已经是 Git 仓库时不要重新创建或覆盖 origin；先查看 `git remote -v`。如 Git 提示缺少作者信息，请使用你自己的姓名和 GitHub 隐私邮箱设置 `git config user.name` / `git config user.email`。
-
-```bash
-git init -b main
+# 2. 本地验证（需要 Node.js 24+ 和 npm）
 npm ci
+npm run sidebar
 npm test
 npm run check
-npm run build
+npm run docs:build
+
+# 3. 只对尚未初始化的新目录执行；已有 Git 仓库先检查 remote
+git init -b main
 git add .
-git commit -m "feat: create automated Astro blog"
+git commit -m "feat: create folder-based VitePress wiki"
 gh repo create "$REPO" --public --source=. --remote=origin --push
-```
 
-3. 把 Pages 发布来源设为 GitHub Actions。新站用 POST，已启用 Pages 的仓库用 PUT；不要把鉴权或权限错误当成“已存在”。首次 push 可能在启用 Pages 之前启动工作流，配置完成后手动再运行即可。
-
-```bash
-# 新站：build_type=workflow 即 GitHub Actions 发布来源
+# 4. 新站启用 GitHub Actions 发布来源
 gh api --method POST "repos/$OWNER/$REPO/pages" -f build_type=workflow
 
-# 仅当上一步提示 Pages 已存在时，运行下面这条修改命令：
+# 仅当 Pages 已存在时，改为下面这条更新命令
 # gh api --method PUT "repos/$OWNER/$REPO/pages" -f build_type=workflow
 
-# 确认输出 build_type 为 workflow
-gh api "repos/$OWNER/$REPO/pages" --jq '{url: .html_url, build_type: .build_type}'
-```
+# 5. Secret 隐藏输入；模型占位文本须替换
+gh secret set OPENAI_API_KEY --repo "$OWNER/$REPO"
+gh variable set OPENAI_MODEL --body '替换为实际模型ID' --repo "$OWNER/$REPO"
+gh variable set OPENAI_BASE_URL --body 'https://api.openai.com/v1' --repo "$OWNER/$REPO"
 
-4. 默认本地库模式无需 Secret。可显式设置模式，并手动触发。
-
-```bash
-gh variable set CONTENT_MODE --body library --repo "$OWNER/$REPO"
+# 6. 触发并观察手动运行
 gh workflow run publish.yml --ref main --repo "$OWNER/$REPO"
-gh run list --workflow publish.yml --limit 5 --repo "$OWNER/$REPO"
-
-# 找到本次手动运行，而不是可能尚在运行的首次 push 任务。
+gh run list --workflow publish.yml --event workflow_dispatch --limit 5 --repo "$OWNER/$REPO"
 RUN_ID=$(gh run list --workflow publish.yml --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId' --repo "$OWNER/$REPO")
 gh run watch "$RUN_ID" --exit-status --repo "$OWNER/$REPO"
-gh api "repos/$OWNER/$REPO/pages" --jq .html_url
-```
 
-5. 验证部署后的地址。GitHub Pages CDN 首次生效可能需要稍等。项目仓库网址通常为 `https://你的用户名.github.io/你的仓库名/`；用户名仓库网址为 `https://你的用户名.github.io/`。
-
-```bash
-gh browse --repo "$OWNER/$REPO"
+# 7. 确认 Pages 来源和网站地址；失败时取日志
+gh api "repos/$OWNER/$REPO/pages" --jq '{url: .html_url, build_type: .build_type}'
 gh run view "$RUN_ID" --log-failed --repo "$OWNER/$REPO"
-gh api "repos/$OWNER/$REPO/commits?per_page=5" --jq '.[].commit.message'
 git pull --ff-only
 ```
 
-`gh browse` 打开仓库，网站地址以上一步 Pages API 为准。机器人提交可能已领先本地，编辑之前先 `git pull --ff-only`。
+首次 push 可能早于 Pages 启用，首次任务若报未配置 Pages，配置后手动触发即可。没有 API 凭据也可跳过第 5 步先部署空知识库。新建个人主页仓库使用 `你的用户名.github.io`，配置会自动用根路径。fork 后如定时任务未启用，执行 `gh workflow enable publish.yml --repo "$OWNER/$REPO"`。
 
-## 可选：启用 OpenAI / 兼容 API
+## 自动发布流水线
 
-默认的本地库没有 API 费用，内容是技术、生活、随笔三个领域的 6 个主题和 7 个练习提示组合，主题会循环，不是每天全新写作。若希望每天生成独立新稿，可以改用 API；无法保证模型完全不重复或事实绝对准确。
+`push main`、`workflow_dispatch`、`schedule: cron: '0 * * * *'` 共用工作流级并发锁，整个流程串行执行，不取消正在运行的发布。
 
-你需要手动获取自己的 API Key、确认账户额度，并选择该账号可调用的模型。此处不预设模型 ID，避免用不可用模型产生失败或意外费用。接口必须支持 Chat Completions、`response_format: json_object` 和 `max_completion_tokens`。JSON 模式仅保证语法，脚本还会校验字段、长度和完成状态。[OpenAI 官方 JSON 模式说明](https://developers.openai.com/api/docs/guides/structured-outputs)。
+1. 检出最新 main，安装 Node 24，`npm ci`，运行测试。
+2. 每日文章缺失且凭据齐全时生成 Markdown；否则说明跳过原因。
+3. 重新扫描分类和目录，执行类型校验与 VitePress 构建。
+4. 构建通过后，仅暂存 `docs/wiki/` 和生成目录 JSON；有变化才提交并推送。
+5. 上传 `docs/.vitepress/dist`，由独立部署 job 发布 Pages。
 
-```bash
-# 隐藏输入，不把 Key 写入命令参数或 shell 历史。
-gh secret set OPENAI_API_KEY --repo "$OWNER/$REPO"
+先构建再提交的顺序可以避免自动提交无法编译的文章。机器人使用 `GITHUB_TOKEN` 推送不会启动额外 push 工作流，当前工作流直接完成部署。检测到远端变化时失败，不强推；下一小时基于最新 main 重试。
 
-# 将模型占位文本替换为你实际可用的模型 ID 后执行。
-gh variable set OPENAI_MODEL --body '替换为实际模型ID' --repo "$OWNER/$REPO"
-gh variable set OPENAI_BASE_URL --body 'https://api.openai.com/v1' --repo "$OWNER/$REPO"
-gh variable set CONTENT_MODE --body openai --repo "$OWNER/$REPO"
-gh workflow run publish.yml --ref main --repo "$OWNER/$REPO"
-```
+“每小时推送”指每小时检查、有变更才推送，不制造空提交。每天最多一篇 AI 条目，但手写文章没有此限制。定时使用 UTC 整点，文章日期独立按北京时间计算。构建 job 的 `contents: write` 用于提交，`pages: read` 用于读取站点配置；部署 job 仅 `pages: write` / `id-token: write`。若 main 有分支保护禁止机器人直推，需要管理员配置允许的发布方式或改成 PR 流程，脚本不会绕过保护。
 
-如果当天已发布，切换模式后仍会跳过，下一天才调用 API。不要为了测试直接删除已发布文章。自动测试用模拟响应覆盖了 API 请求和错误路径，运行 `npm test` 不会消耗额度。真实 API 端到端调用需要你配置可用凭据后验证。
-
-兼容服务：把 `OPENAI_BASE_URL` 改为该提供商文档给出的 HTTPS API 根路径，例如 `https://api.example.com/v1`，不要包含 `/chat/completions`。模型填写对方支持的 ID，Key 也使用对应提供商的 Key。只配置可信提供商，Key 会被发送到该地址；脚本禁止 HTTP、URL 凭据及重定向。部分兼容服务对 token 参数或 JSON 格式支持不同，需要按其文档调整 `requestArticle()`。
-
-本地调用可把 `.env.example` 复制为 `.env`，填入相同配置后运行 `npm run generate`。`.env` 已被 Git 忽略。不要使用 `PUBLIC_` 前缀传递任何密钥，这类变量可能进入浏览器代码。
-
-恢复无需 API 的模式：
-
-```bash
-gh variable set CONTENT_MODE --body library --repo "$OWNER/$REPO"
-# 确认不再需要 Key 后，可手动撤销提供商凭据并删除仓库 Secret：
-# gh secret delete OPENAI_API_KEY --repo "$OWNER/$REPO"
-```
-
-## 环境变量与 Secrets
-
-| 名称 | 存储位置 | 默认值 / 用途 |
-| --- | --- | --- |
-| `OPENAI_API_KEY` | GitHub Actions Secret / 本地 `.env` | 仅 API 模式必需，只供生成步骤使用 |
-| `CONTENT_MODE` | Actions Variable / 本地 `.env` | `library`；可改为 `openai` |
-| `OPENAI_MODEL` | Actions Variable / 本地 `.env` | 无默认值，API 模式必须填写可用模型 |
-| `OPENAI_BASE_URL` | Actions Variable / 本地 `.env` | `https://api.openai.com/v1`，可信兼容接口可覆盖 |
-| `CONTENT_TIMEZONE` | 工作流步骤 / 本地 `.env` | `Asia/Shanghai`；自动化固定北京时间 |
-| `GITHUB_TOKEN` | GitHub 自动注入 | 无需手工创建 PAT，checkout 用它提交内容 |
-| `GITHUB_REPOSITORY` | GitHub 自动注入 | 推导 Pages 域名和项目子路径 |
-| `SITE_URL` | 构建进程环境 | 自定义域名覆盖项，本地可用；Actions 需自行在 build 步骤增加 env |
-| `BASE_PATH` | 构建进程环境 | 子路径覆盖项；Actions 需自行增加 env。自定义域名通常用 `/` |
-
-`npm run generate` 会读取 `.env`；Astro 常规环境变量由构建环境提供，测试 `SITE_URL` / `BASE_PATH` 时可直接在命令前赋值。修改网站域名还需同步 GitHub Pages 域名设置与 DNS，本项目默认使用 GitHub 提供的域名。
-
-## 自动发布流程
-
-`push main`、每小时 UTC 整点（`0 * * * *`）和 `workflow_dispatch` 都运行同一工作流。日期判断采用北京时间，和 cron 的 UTC 时区相互独立。
-
-1. 检出最新 `main`，Node 24，执行 `npm ci` 和生成逻辑测试。
-2. 扫描文章 frontmatter。当天已有非草稿文章就退出生成；否则生成一篇带来源标记的 Markdown。嵌套目录中的文章也参与判断。
-3. 校验内容、类型并构建。只有构建成功才提交新增内容；只暂存 `src/content/posts/`，无变化不产生空提交。
-4. 推送内容并检查远端是否仍对应本地 HEAD。如果人工 push 竞争导致失败，不强制覆盖，下一次运行会读取最新 `main` 再判断。
-5. 上传构建产物，在独立 job 用 Pages 身份令牌发布。机器人推送使用 `GITHUB_TOKEN` 不触发额外 push 工作流，本轮工作流直接完成部署。
-
-工作流共享并发组，关闭取消运行，防止两个运行同时生成和发布。待执行运行可能被 GitHub 合并为较新的待执行运行，下一轮仍按当天文章判断。一个正常的日子通常产生 1 次内容提交和最多 24 次检查/部署；“每小时推送”按有变化才推送实现，不制造无意义空提交。
-
-如果 API 失败、响应被截断、frontmatter 不合法或构建失败，任务报错，不会发布半篇文章；下一个小时再次尝试。API 单次超时 90 秒，每轮最多一次请求。故障期间最多可能每小时调用一次，务必在提供商侧设置预算和告警。
-
-## 手写文章格式
-
-```markdown
----
-title: "一篇新文章"
-date: "2026-10-16"
-tags: ["技术", "编程"]
-summary: "用一句话说明文章的内容。"
-source: "manual"
-draft: false
----
-
-## 一个小标题
-
-正文支持普通 Markdown、代码高亮、列表、表格和引用。
-```
-
-文件名建议用英文短横线，避免特殊 URL 字符。标签支持中文，会自动生成独立页面。日期始终加引号，使用真实的 `YYYY-MM-DD`；未来日期目前不会自动隐藏，未准备好的内容请设置 `draft: true`。原始 HTML 会按文本显示，危险链接协议会移除；通过 Markdown 添加的图片会带 `loading="lazy"` / `decoding="async"`。站点没有默认文章大图，以减少加载开销。相对链接与图片请考虑 GitHub Pages 子路径，推荐使用完整 HTTPS 资源地址。
-
-文章页提供更早/更新文章导航，全部页面包含 title、description、canonical、Open Graph。RSS 提供摘要而非未经清理的正文 HTML。主题初次跟随系统，手动切换会保存在浏览器；禁用存储时仍可切换当前页面主题。
+本地生成使用 `docs/wiki/.generation.lock` 防并发。正常失败会清理锁；若被强制终止而留下锁，请先确认没有其他生成进程，再只移除这个锁目录后重试。Actions 使用全新 checkout，不会继承本地残留锁。
 
 ## 验收标准
 
-- 本地：`npm ci && npm test && npm run check && npm run build` 成功，`npm audit` 无已知漏洞（以检查时数据库为准）。
-- 部署：`gh run watch ... --exit-status` 成功，Pages API `build_type` 为 `workflow`。首页、文章、第二页、中文标签、关于页均可直接打开和刷新；浏览器 Network 无缺失 CSS/JS。
-- SEO：查看任意页面源代码，检查独立标题、description、canonical、OG；打开 `/rss.xml`、`/sitemap-index.xml` 和 `/robots.txt`（加仓库 base）。
-- 幂等：同一天连续运行两次 `npm run generate`，第一次可能生成，第二次输出 `created:false`，Git 内容无变化。同一天手动发布的文章同样阻止自动生成。
-- 跨日：`npm test` 验证北京时间 23:59:59 / 00:00:00 边界与下一天生成。实际连续两天查看 Actions 和 `src/content/posts/`；配置成功不等于已经观测了两天。
-- 每小时：`gh run list --workflow publish.yml --event schedule` 查看实际调度记录；正常日应有多个每小时检查。无变化不产生 Git 提交。
-- 视觉：320px、390px、768px、1440px 视口无整页横向滚动；键盘可访问导航、分页和主题开关；深浅色有可读对比；系统减少动态效果时不播放过渡。
-- API：配置自己的 Secret 和模型后，在尚无当天文章的一天确认 `source: openai` 的新文件出现。自动测试不代表真实账号和模型已经通过验证。
+- `npm test` 覆盖目录层级、别名、排序、空分类、草稿、隐藏、幂等、跨日、API 故障、凭据缺失和并发锁。
+- `npm run check` 和 `npm run docs:build` 成功；构建不会忽略死链接错误。
+- 320/390/768/1440px 下无整页横向滚动；手机“目录”按钮打开抽屉；电脑左栏固定、右侧显示页面大纲。
+- 打开排版参考，Mermaid 显示 SVG 而非只有源码；切换深浅色后图仍可读，宽表格只在局部滚动。
+- `Ctrl+K` 搜索“分类别名”，能从全文索引找到内容组织；英文关键词也能搜索。
+- 修改某层 `.category.config.yaml` 的 `name`，目录和面包屑同步变更；移动或删除文章后无旧链接残留。
+- 新增知识文章后，归档、标签、分类计数同步变化；草稿、隐藏内容不出现在搜索或构建产物中。
+- Actions 成功且网站可以直接刷新深层 URL；查看页面源码包含 title、description、canonical 和 Open Graph，`sitemap.xml` 可访问。
+- 手动连续触发两次：已有当天 AI 条目时不再请求 API、不产生第二篇文章或空提交。
+- 配置真实 Key 和模型后，观察新的 `source: openai` 文章；自动测试通过不代表真实账号 API 已验证。
+- `gh run list --workflow publish.yml --event schedule` 查看实际定时执行；跨日效果需后续真实运行观测，不能用一次手动运行替代。
 
-## 权限、安全、额度与故障排查
+## 注意事项
 
-仓库公开后，源码与文章均可被访问。不要提交 Key、个人隐私或有版权限制的全文。工作流依赖固定到 commit SHA，npm 依赖由 lockfile 锁定；更新依赖后重新运行检查。原始 HTML 禁用是为了防止自动内容执行脚本，不能代替人工核实文章事实与版权。
+API 文章会显示“AI 辅助 · 待核实”，需要核对事实与来源。Markdown 在 VitePress 中可以使用 Vue；自动内容禁止执行这些语法，但手写内容仍属于可信站点源码。分类隐藏和草稿排除不是私密存储，公开 Git 历史仍可能保留内容。
 
-构建 job 使用 `contents: write` 提交文章，`pages: read` 查询配置；部署 job 使用 `pages: write` 和 `id-token: write` 发布。无需授予 PAT。若组织策略、分支保护或 ruleset 禁止机器人直推，`git push` 会失败；需要仓库管理员为此工作流配置合适权限，或另行改为 PR 发布流程。本项目不会绕过分支保护。
+不要硬编码 Token，不要把 Key 放在 `VITE_` 环境变量或客户端主题里。工作流中的 Key 仅提供给生成步骤；外部请求不记录原始错误响应。API 故障可能最多每小时请求一次，在提供商侧设置预算与告警。
 
-查看错误：`gh run view RUN_ID --log-failed --repo OWNER/REPO`（把这些大写占位符换成实际值）。Pages 未启用请按上面的 POST/PUT 配置；资源 404 请检查 `base` 和仓库名；API 401/403/429 请检查凭据、模型、权限和额度。不要将含私密信息的原始日志公开。
+GitHub 整点定时任务可能延迟或被丢弃；公开仓库长期无活动可能暂停定时任务。正常运行下目标为每天一篇，无法保证平台/API 故障时仍每日更新。[GitHub 定时任务说明](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)。
 
-GitHub 定时任务不是可靠时钟：整点高负载时可能延迟甚至丢弃，且只运行默认分支上的工作流；公开仓库 60 天无活动时定时任务可能被自动禁用。每天更新是正常调度和成功运行下的目标，不保证平台故障时仍每日成功，也不自动补写停机期间的历史日期。[GitHub schedule 官方说明](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#schedule)。如被停用，先 `gh workflow enable publish.yml --repo "$OWNER/$REPO"`，再手动触发并检查。
+公开仓库的标准 GitHub 托管 runner 通常免分钟费，额外存储、大型 runner、私有仓库和 API 有不同额度，以账户实际规则为准。本站每小时仍构建部署一次，即使没有内容变更；后续可按需优化跳过未变化构建。[Actions 计费](https://docs.github.com/en/billing/concepts/product-billing/github-actions)、[Pages 使用限制](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)。
 
-公开仓库使用标准 GitHub 托管 runner 通常免分钟费用；私有仓库、额外存储、大型 runner 和提供商 API 有独立计费与限制。每天最多 24 次完整构建，站点变大后可再考虑“无变化跳过构建”的节省方案。额度以账户和当期官方条款为准：[Actions 计费](https://docs.github.com/en/billing/concepts/product-billing/github-actions)、[Pages 使用限制](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits)。GitHub Pages 用于静态站点，不是服务端接口托管。
-
-官方参考：[Astro Pages 部署](https://docs.astro.build/en/guides/deploy/github/)、[GitHub Pages API](https://docs.github.com/en/rest/pages/pages)、[GitHub 自定义部署工作流](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages)。
+参考：[VitePress 文档](https://vitepress.dev/)、[VitePress 仓库](https://github.com/vuejs/vitepress)、[Mermaid 安全配置](https://mermaid.js.org/config/usage.html)、[GitHub Pages API](https://docs.github.com/en/rest/pages/pages)。

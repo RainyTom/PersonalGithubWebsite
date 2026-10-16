@@ -1,4 +1,4 @@
-name: Hourly content and Pages
+name: Hourly Wiki and Pages
 
 on:
   push:
@@ -39,25 +39,26 @@ jobs:
       - name: Generate today's article if missing
         run: npm run generate
         env:
-          CONTENT_MODE: ${{ vars.CONTENT_MODE || 'library' }}
           CONTENT_TIMEZONE: Asia/Shanghai
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
           OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL || 'https://api.openai.com/v1' }}
+      - name: Rebuild folder-based navigation
+        run: npm run sidebar
       - run: npm run check
       - name: Configure Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       # 构建先通过，再提交内容，避免把无法构建的文章自动推上 main。
       - run: npm run build
-      - name: Commit and push only changed posts
+      - name: Commit changed knowledge and navigation
         run: |
-          git add src/content/posts/
+          git add docs/wiki/ docs/.vitepress/generated/
           if git diff --cached --quiet; then
             echo "No content changes; no empty commit."
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git commit -m "content: publish daily note"
+            git commit -m "content: update daily knowledge and navigation"
             # 远端变化时让任务失败，由下一次定时任务重试；不强推、不覆盖人工内容。
             git push origin HEAD:main
           fi
@@ -66,7 +67,7 @@ jobs:
           test "$remote_head" = "$(git rev-parse HEAD)"
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: dist
+          path: docs/.vitepress/dist
 
   deploy:
     needs: build

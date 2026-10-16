@@ -1,0 +1,19 @@
+# 成功生成文章后才创建对应文件夹和分类配置，不预填默认分类。
+# path 位于 docs/wiki/ 下；路径段只允许小写 ASCII 字母、数字和短横线。
+topics:
+  - title: "静态站点发布中的幂等性、失败重试与并发控制"
+    path: engineering/automation
+    categories: ["工程实践", "自动化"]
+    tags: ["DevOps", "可靠性"]
+  - title: "技术决策记录：背景、约束、备选方案和验证方式"
+    path: engineering/decisions
+    categories: ["工程实践", "技术决策"]
+    tags: ["架构", "文档"]
+  - title: "全文搜索索引的分词、召回与排序：小型知识库案例"
+    path: computing/search
+    categories: ["计算机基础", "搜索"]
+    tags: ["信息检索", "基础"]
+  - title: "缓存失效策略与一致性边界：读写路径中的常见选择"
+    path: computing/systems
+    categories: ["计算机基础", "系统设计"]
+    tags: ["缓存", "系统设计"]

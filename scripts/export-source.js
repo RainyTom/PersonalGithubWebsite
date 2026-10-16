@@ -2,14 +2,14 @@ import { readdir, readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
 // 机械导出受控文本文件，供需要一次复制完整源码的读者使用。
-const skip = new Set(['.git', 'node_modules', '.astro', 'dist', 'artifacts']);
+const skip = new Set(['.git', 'node_modules', '.astro', 'dist', 'cache', 'artifacts']);
 async function files(dir = '.') {
   const output = [];
   for (const entry of (await readdir(dir, { withFileTypes: true })).sort((a, b) => a.name.localeCompare(b.name))) {
     if (skip.has(entry.name) || entry.name === '.env' || (entry.name.startsWith('.env.') && entry.name !== '.env.example')) continue;
     const file = path.join(dir, entry.name);
     if (entry.isDirectory()) output.push(...await files(file));
-    else if (entry.name !== 'package-lock.json' && /\.(astro|ts|js|mjs|json|css|md|yml|svg|example)$/.test(file) || entry.name === '.gitignore') output.push(file);
+    else if ((entry.name !== 'package-lock.json' && /\.(vue|mts|ts|js|mjs|json|css|md|ya?ml|svg|example)$/.test(file)) || entry.name === '.gitignore') output.push(file);
   }
   return output;
 }

@@ -1,6 +1,0 @@
----
-import Base from '../../layouts/Base.astro';
-import { allPosts, tagCounts, tagHref } from '../../lib/posts';
-const tags = tagCounts(await allPosts());
----
-<Base title="所有标签" description="从技术、生活与随笔出发，找到你感兴趣的记录。"><section class="simple-page"><div class="eyebrow">EXPLORE BY TOPIC</div><h1>沿着兴趣，随处看看。</h1><p class="lead">给零散的思考，一个小小的归属。</p><div class="tag-grid">{tags.map(([tag, count]) => <a href={tagHref(tag)}><span># {tag}</span><span>{count} 篇 ↗</span></a>)}</div></section></Base>
