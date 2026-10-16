@@ -8,13 +8,8 @@ const watcher = watch('docs', { recursive: true }, (_, filename) => {
   clearTimeout(timer);
   timer = setTimeout(() => { running = running.then(() => updateSidebar()).catch(error => console.error(`目录更新失败：${error.message}`)); }, 200);
 });
-const categoryWatcher = watch('.', (_, filename) => {
-  if (filename !== 'category.config.yaml') return;
-  clearTimeout(timer);
-  timer = setTimeout(() => { running = running.then(() => updateSidebar()).catch(error => console.error(`目录更新失败：${error.message}`)); }, 200);
-});
 const child = spawn(process.execPath, ['node_modules/vitepress/bin/vitepress.js', 'dev', 'docs', '--host', '127.0.0.1', ...process.argv.slice(2)], { stdio: 'inherit' });
-const close = () => { clearTimeout(timer); watcher.close(); categoryWatcher.close(); child.kill('SIGTERM'); };
+const close = () => { clearTimeout(timer); watcher.close(); child.kill('SIGTERM'); };
 process.on('SIGINT', close);
 process.on('SIGTERM', close);
-child.on('exit', code => { clearTimeout(timer); watcher.close(); categoryWatcher.close(); process.exitCode = code || 0; });
+child.on('exit', code => { clearTimeout(timer); watcher.close(); process.exitCode = code || 0; });

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { parse, stringify } from 'yaml';
 import frontmatter from './frontmatter.js';
 import { updateSidebar } from './update-sidebar.js';
-import { buildWiki, categoryConfig, loadGlobalCategories, registerGlobalCategories } from './wiki.js';
+import { buildWiki, categoryConfig } from './wiki.js';
 
 export function dateInTimezone(now = new Date(), timezone = 'Asia/Shanghai') {
   const parts = new Intl.DateTimeFormat('en-US', { timeZone: timezone, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
@@ -73,7 +73,7 @@ export async function requestArticle(topic, date, env = process.env, fetchImpl =
   if (choice?.finish_reason !== 'stop' || typeof choice.message?.content !== 'string') throw new Error('API 未返回完整文章');
   return validateArticle(JSON.parse(choice.message.content));
 }
-export async function generate({ root = path.resolve('docs'), now = new Date(), env = process.env, fetchImpl = fetch, topicsFile = path.resolve('config/topics.yaml'), categoryFile = path.resolve(root, '../category.config.yaml') } = {}) {
+export async function generate({ root = path.resolve('docs'), now = new Date(), env = process.env, fetchImpl = fetch, topicsFile = path.resolve('config/topics.yaml') } = {}) {
   const date = dateInTimezone(now, env.CONTENT_TIMEZONE || 'Asia/Shanghai');
   const wiki = path.join(root, 'wiki');
   await mkdir(wiki, { recursive: true });
@@ -87,13 +87,11 @@ export async function generate({ root = path.resolve('docs'), now = new Date(), 
   const topics = validateTopics(parse(await readFile(topicsFile, 'utf8'), { maxAliasCount: 20, uniqueKeys: true }));
   const day = Math.floor(Date.parse(`${date}T00:00:00Z`) / 86400000);
   const topic = topics[day % topics.length];
-  await buildWiki(root, { categoryFile }); // 配置错误时先失败，避免浪费一次 API 请求。
-  const global = await loadGlobalCategories(root, categoryFile);
+  await buildWiki(root); // 配置错误时先失败，避免浪费一次 API 请求。
   let categoryPath = wiki;
   for (const segment of ['', ...topic.path.split('/')]) {
     if (segment) categoryPath = path.join(categoryPath, segment);
-    const relative = path.relative(root, categoryPath).split(path.sep).join('/');
-    if (({ ...await categoryConfig(categoryPath), ...global.byPath.get(relative) }).hidden) throw new Error('目标分类被设置为 hidden，无法自动发布');
+    if ((await categoryConfig(categoryPath)).hidden) throw new Error('目标分类被设置为 hidden，无法自动发布');
   }
   // 本地并发调用只会有一个进程获得生成锁；Actions 另有工作流级串行锁。
   const lock = path.join(wiki, '.generation.lock');
@@ -108,13 +106,18 @@ export async function generate({ root = path.resolve('docs'), now = new Date(), 
     // 暂存目录中的文件不被扫描；通过全部内容和目录校验后再生成分类。
     const staging = path.join(lock, 'article.md');
     await writeFile(staging, markdown);
-    await mkdir(target, { recursive: true });
+    let current = wiki;
+    for (const [i, segment] of topic.path.split('/').entries()) {
+      current = path.join(current, segment);
+      await mkdir(current, { recursive: true });
+      try { await writeFile(path.join(current, '.category.config.yaml'), stringify({ name: topic.categories[i], collapsed: false }), { flag: 'wx' }); }
+      catch (error) { if (error.code !== 'EEXIST') throw error; }
+    }
     const file = path.join(target, `${date}-daily.md`);
     // 不覆盖任何已有文件，包括同名草稿。
     try { await link(staging, file); }
     catch (error) { if (error.code === 'EEXIST') throw new Error('当天目标文件已存在，请检查日期、来源或草稿状态'); throw error; }
-    await registerGlobalCategories(root, topic, categoryFile);
-    await updateSidebar(root, { categoryFile });
+    await updateSidebar(root);
     return { created: true, date, file, source: 'openai' };
   } finally { await rm(lock, { recursive: true, force: true }); }
 }

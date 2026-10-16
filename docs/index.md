@@ -25,7 +25,7 @@ type: Workspace
 
 ## 维护约定
 
-条目以 Markdown 保存，全局 `category.config.yaml` 定义分类树、显示名称与排序。声明的分类即使尚无文件夹或文章，也会保留显示。目录、归档与标签自动同步，无需维护链接清单。
+条目以 Markdown 保存，文件夹形成分类，`.category.config.yaml` 设置显示名称与排序。目录、归档与标签从内容自动生成，无需维护链接清单。
 
 ::: tip 开始记录
 查看[内容组织](./authoring.md)创建第一个条目，或打开[排版参考](./reference.md)了解表格、架构图和代码组的写法。

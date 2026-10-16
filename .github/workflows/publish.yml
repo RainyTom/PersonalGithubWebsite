@@ -52,7 +52,7 @@ jobs:
       - run: npm run build
       - name: Commit changed knowledge and navigation
         run: |
-          git add category.config.yaml docs/wiki/ docs/.vitepress/generated/
+          git add docs/wiki/ docs/.vitepress/generated/
           if git diff --cached --quiet; then
             echo "No content changes; no empty commit."
           else
